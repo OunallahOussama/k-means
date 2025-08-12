@@ -11,8 +11,6 @@ if (searchbox) {
   searchbox.addEventListener('input', function() {
     const q = this.value.toLowerCase();
     const filtered = data.filter(p =>
-      p.core_objective.toLowerCase().includes(q) ||
-      p.key_strength.toLowerCase().includes(q) ||
       p.specialized_courses.some(c => c.toLowerCase().includes(q)) ||
       p.career_outcomes.some(c => c.toLowerCase().includes(q))
     );
@@ -48,25 +46,26 @@ function showComparator(programs) {
   `;
 }
 
-// Dynamically extract relevant features for clustering
+// Only use Specialized Courses and Career Outcomes for clustering
 function extractFeatures(programs) {
-  const featureSet = [
-    "analytics","data","e-commerce","erp","crm","web","governance","forecasting","integration"
-  ];
+  // Collect all unique specialized courses and career outcomes
+  const allCourses = new Set();
+  const allOutcomes = new Set();
+  programs.forEach(p => {
+    (p.specialized_courses || []).forEach(c => allCourses.add(c.trim().toLowerCase()));
+    (p.career_outcomes || []).forEach(o => allOutcomes.add(o.trim().toLowerCase()));
+  });
+
+  // Feature set is the union of all unique values
+  const featureSet = Array.from(new Set([...allCourses, ...allOutcomes]));
+
+  // Build binary feature vectors for each program
   return programs.map(p => {
-    let text = [
-      p.key_strength, p.core_objective, p.main_focus,
-      ...p.specialized_courses,
-      ...p.data_and_analytics,
-      ...p.e_commerce_focus,
-      p.systems_integration,
-      p.programming_focus,
-      p.business_emphasis,
-      ...p.key_courses || [],
-      ...p.decision_sciences || [],
-      ...p.soft_skills || []
-    ].join(" ").toLowerCase();
-    return featureSet.map(f => text.includes(f) ? 1 : 0);
+    const values = [
+      ...(p.specialized_courses || []).map(x => x.trim().toLowerCase()),
+      ...(p.career_outcomes || []).map(x => x.trim().toLowerCase())
+    ];
+    return featureSet.map(f => values.includes(f) ? 1 : 0);
   });
 }
 
@@ -139,7 +138,7 @@ function runKMeans(programs) {
 
   const { centroids, assignments } = kMeansClassic(features, k);
 
-  // Use first two features for scatter plot: "analytics" and "e-commerce"
+  // For scatter plot, pick first two features (may be arbitrary but shows separation)
   const colors = ["#FF6384", "#36A2EB", "#FFCE56", "#8AFF33", "#A233FF"];
   const datasets = Array.from({length: k}, (_, i) => ({
     label: `Cluster ${i+1}`,
@@ -150,8 +149,8 @@ function runKMeans(programs) {
 
   assignments.forEach((clusterIdx, i) => {
     datasets[clusterIdx].data.push({
-      x: features[i][0] + features[i][2]*0.5, // analytics + e-commerce
-      y: features[i][3] + features[i][1]*0.5, // erp + data
+      x: features[i][0], // featureSet[0]
+      y: features[i][1], // featureSet[1]
       program: programs[i].name
     });
   });
@@ -174,16 +173,34 @@ function runKMeans(programs) {
       responsive: true,
       scales: {
         x: {
-          title: { display: true, text: 'Analytics / E-commerce' },
-          min: -0.2, max: 2.2, ticks: { stepSize: 1 }
+          title: { display: true, text: 'Feature: ' + (window.featureSetName0 || 'Specialized/Career 1') },
+          min: -0.2, max: 1.2, ticks: { stepSize: 1 }
         },
         y: {
-          title: { display: true, text: 'ERP / Data' },
-          min: -0.2, max: 2.2, ticks: { stepSize: 1 }
+          title: { display: true, text: 'Feature: ' + (window.featureSetName1 || 'Specialized/Career 2') },
+          min: -0.2, max: 1.2, ticks: { stepSize: 1 }
         }
       }
     }
   });
+
+  // Optionally update feature names for axis labels
+  if (features.length && features[0].length >= 2) {
+    window.featureSetName0 = getFeatureName(0, programs);
+    window.featureSetName1 = getFeatureName(1, programs);
+  }
+}
+
+// Helper to get feature name for axis labels
+function getFeatureName(idx, programs) {
+  const allCourses = new Set();
+  const allOutcomes = new Set();
+  programs.forEach(p => {
+    (p.specialized_courses || []).forEach(c => allCourses.add(c.trim().toLowerCase()));
+    (p.career_outcomes || []).forEach(o => allOutcomes.add(o.trim().toLowerCase()));
+  });
+  const featureSet = Array.from(new Set([...allCourses, ...allOutcomes]));
+  return featureSet[idx] || "";
 }
 
 // No TensorFlow.js code remains in this file!
