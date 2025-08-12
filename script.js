@@ -70,16 +70,74 @@ function extractFeatures(programs) {
   });
 }
 
-// Run k-means clustering using TensorFlow.js and visualize clusters
-async function runKMeans(programs) {
-  if (!window.tf) {
-    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js');
+// Classic JS k-means implementation (no TensorFlow)
+function euclidean(a, b) {
+  let sum = 0;
+  for(let i=0; i<a.length; i++) {
+    sum += (a[i] - b[i]) ** 2;
   }
+  return Math.sqrt(sum);
+}
+
+function kMeansClassic(features, k, maxIter=30) {
+  const n = features.length;
+  // Randomly pick k initial centroids
+  let centroids = [];
+  const usedIdx = new Set();
+  while (centroids.length < k) {
+    let idx = Math.floor(Math.random() * n);
+    if (!usedIdx.has(idx)) {
+      centroids.push(features[idx].slice());
+      usedIdx.add(idx);
+    }
+  }
+  let assignments = new Array(n).fill(0);
+
+  for(let iter=0; iter<maxIter; iter++) {
+    // Assign clusters
+    assignments = features.map(f => {
+      let minDist = Infinity, minIdx = 0;
+      for(let i=0; i<k; i++) {
+        let d = euclidean(f, centroids[i]);
+        if(d < minDist) {
+          minDist = d;
+          minIdx = i;
+        }
+      }
+      return minIdx;
+    });
+
+    // Update centroids
+    let newCentroids = Array.from({length: k}, () => Array(features[0].length).fill(0));
+    let counts = Array(k).fill(0);
+    for(let i=0; i<n; i++) {
+      const cluster = assignments[i];
+      for(let j=0; j<features[0].length; j++) {
+        newCentroids[cluster][j] += features[i][j];
+      }
+      counts[cluster]++;
+    }
+    for(let i=0; i<k; i++) {
+      if(counts[i] === 0) {
+        // Reinitialize to random point
+        newCentroids[i] = features[Math.floor(Math.random() * n)].slice();
+      } else {
+        for(let j=0; j<features[0].length; j++) {
+          newCentroids[i][j] /= counts[i];
+        }
+      }
+    }
+    centroids = newCentroids;
+  }
+  return { centroids, assignments };
+}
+
+// Run k-means clustering and visualize clusters
+function runKMeans(programs) {
   const features = extractFeatures(programs);
   const k = Math.min(3, programs.length);
 
-  const xs = tf.tensor2d(features);
-  const { centroids, assignments } = await kMeans(xs, k);
+  const { centroids, assignments } = kMeansClassic(features, k);
 
   // Use first two features for scatter plot: "analytics" and "e-commerce"
   const colors = ["#FF6384", "#36A2EB", "#FFCE56", "#8AFF33", "#A233FF"];
@@ -128,35 +186,4 @@ async function runKMeans(programs) {
   });
 }
 
-// Simple K-means implementation for TF.js tensors
-async function kMeans(xs, k, maxIter = 30) {
-  const n = xs.shape[0];
-  let centroids = xs.gather(tf.util.createShuffledIndices(n).slice(0, k));
-  let assignments = new Array(n).fill(0);
-  for (let iter = 0; iter < maxIter; iter++) {
-    const dists = tf.tidy(() => xs.expandDims(1).sub(centroids.expandDims(0)).pow(2).sum(-1));
-    assignments = await dists.argMin(1).array();
-    let newCentroids = [];
-    for (let i = 0; i < k; i++) {
-      const idxs = assignments.map((a, j) => a === i ? j : -1).filter(j => j !== -1);
-      if (idxs.length === 0) {
-        newCentroids.push(xs.gather([Math.floor(Math.random() * n)]));
-      } else {
-        newCentroids.push(xs.gather(idxs).mean(0));
-      }
-    }
-    centroids = tf.stack(newCentroids);
-  }
-  return { centroids, assignments };
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
+// Removed TensorFlow loading function since it's no longer needed
