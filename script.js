@@ -5,7 +5,6 @@ fetch('data.json').then(r => r.json()).then(json => {
   runKMeans(data);
 });
 
-// Comparator & search logic
 const comparator = document.getElementById('comparator');
 const searchbox = document.getElementById('searchbox');
 if (searchbox) {
@@ -49,77 +48,142 @@ function showComparator(programs) {
   `;
 }
 
-// K-means clustering (2D: [specialized_courses.length, career_outcomes.length])
-function runKMeans(programs) {
-  // Feature extraction
-  const points = programs.map(p => ({
-    x: p.specialized_courses.length,
-    y: p.career_outcomes.length,
-    label: p.name
-  }));
-
-  // Simple K-means (k=2, random init, 5 iterations)
-  const k = 2;
-  let centroids = [
-    {x: points[0].x, y: points[0].y},
-    {x: points[1 % points.length].x, y: points[1 % points.length].y}
+// Dynamically extract relevant features for clustering
+function extractFeatures(programs) {
+  const featureSet = [
+    "analytics","data","e-commerce","erp","crm","web","governance","forecasting","integration"
   ];
-  let assignments = new Array(points.length);
-  for(let iter=0; iter<5; iter++) {
-    // Assign clusters
-    for(let i=0; i<points.length; i++) {
-      let dists = centroids.map(c => Math.pow(points[i].x-c.x,2)+Math.pow(points[i].y-c.y,2));
-      assignments[i] = dists[0] < dists[1] ? 0 : 1;
+  return programs.map(p => {
+    let text = [
+      p.key_strength, p.core_objective, p.main_focus,
+      ...p.specialized_courses,
+      ...p.data_and_analytics,
+      ...p.e_commerce_focus,
+      p.systems_integration,
+      p.programming_focus,
+      p.business_emphasis,
+      ...p.key_courses || [],
+      ...p.decision_sciences || [],
+      ...p.soft_skills || []
+    ].join(" ").toLowerCase();
+    return featureSet.map(f => text.includes(f) ? 1 : 0);
+  });
+}
+
+// Classic JS k-means implementation (no TensorFlow)
+function euclidean(a, b) {
+  let sum = 0;
+  for(let i=0; i<a.length; i++) {
+    sum += (a[i] - b[i]) ** 2;
+  }
+  return Math.sqrt(sum);
+}
+
+function kMeansClassic(features, k, maxIter=30) {
+  const n = features.length;
+  // Randomly pick k initial centroids
+  let centroids = [];
+  const usedIdx = new Set();
+  while (centroids.length < k) {
+    let idx = Math.floor(Math.random() * n);
+    if (!usedIdx.has(idx)) {
+      centroids.push(features[idx].slice());
+      usedIdx.add(idx);
     }
+  }
+  let assignments = new Array(n).fill(0);
+
+  for(let iter=0; iter<maxIter; iter++) {
+    // Assign clusters
+    assignments = features.map(f => {
+      let minDist = Infinity, minIdx = 0;
+      for(let i=0; i<k; i++) {
+        let d = euclidean(f, centroids[i]);
+        if(d < minDist) {
+          minDist = d;
+          minIdx = i;
+        }
+      }
+      return minIdx;
+    });
+
     // Update centroids
-    for(let j=0; j<k; j++) {
-      let cluster = points.filter((_,i) => assignments[i]===j);
-      if(cluster.length) {
-        centroids[j] = {
-          x: cluster.reduce((sum,p)=>sum+p.x,0)/cluster.length,
-          y: cluster.reduce((sum,p)=>sum+p.y,0)/cluster.length
-        };
+    let newCentroids = Array.from({length: k}, () => Array(features[0].length).fill(0));
+    let counts = Array(k).fill(0);
+    for(let i=0; i<n; i++) {
+      const cluster = assignments[i];
+      for(let j=0; j<features[0].length; j++) {
+        newCentroids[cluster][j] += features[i][j];
+      }
+      counts[cluster]++;
+    }
+    for(let i=0; i<k; i++) {
+      if(counts[i] === 0) {
+        // Reinitialize to random point
+        newCentroids[i] = features[Math.floor(Math.random() * n)].slice();
+      } else {
+        for(let j=0; j<features[0].length; j++) {
+          newCentroids[i][j] /= counts[i];
+        }
       }
     }
+    centroids = newCentroids;
   }
+  return { centroids, assignments };
+}
 
-  // Prepare Chart.js datasets
-  const clusterColors = ['#285cc4', '#c4285c'];
-  const datasets = [];
-  for(let j=0; j<k; j++) {
-    datasets.push({
-      label: "Cluster "+(j+1),
-      data: points.filter((_,i)=>assignments[i]===j),
-      backgroundColor: clusterColors[j],
-      pointRadius: 10,
-      showLine: false
+// Run k-means clustering and visualize clusters
+function runKMeans(programs) {
+  const features = extractFeatures(programs);
+  const k = Math.min(3, programs.length);
+
+  const { centroids, assignments } = kMeansClassic(features, k);
+
+  // Use first two features for scatter plot: "analytics" and "e-commerce"
+  const colors = ["#FF6384", "#36A2EB", "#FFCE56", "#8AFF33", "#A233FF"];
+  const datasets = Array.from({length: k}, (_, i) => ({
+    label: `Cluster ${i+1}`,
+    data: [],
+    backgroundColor: colors[i % colors.length],
+    pointRadius: 10
+  }));
+
+  assignments.forEach((clusterIdx, i) => {
+    datasets[clusterIdx].data.push({
+      x: features[i][0] + features[i][2]*0.5, // analytics + e-commerce
+      y: features[i][3] + features[i][1]*0.5, // erp + data
+      program: programs[i].name
     });
-  }
+  });
 
-  // Draw chart
-  const ctx = document.getElementById('kmeansChart').getContext('2d');
   if (window.kmeansChartObj) window.kmeansChartObj.destroy();
-  window.kmeansChartObj = new Chart(ctx, {
+
+  window.kmeansChartObj = new Chart(document.getElementById('kmeansChart'), {
     type: 'scatter',
-    data: {datasets},
+    data: { datasets },
     options: {
       plugins: {
-        legend: {display: true},
         tooltip: {
           callbacks: {
-            label: ctx => `${ctx.raw.label}: SpecCourses=${ctx.raw.x}, Careers=${ctx.raw.y}`
+            label: function(context) {
+              return context.raw.program;
+            }
           }
         }
       },
+      responsive: true,
       scales: {
-        x: {title: {display: true, text: 'Specialized Courses Count'}, beginAtZero: true},
-        y: {title: {display: true, text: 'Career Outcomes Count'}, beginAtZero: true}
+        x: {
+          title: { display: true, text: 'Analytics / E-commerce' },
+          min: -0.2, max: 2.2, ticks: { stepSize: 1 }
+        },
+        y: {
+          title: { display: true, text: 'ERP / Data' },
+          min: -0.2, max: 2.2, ticks: { stepSize: 1 }
+        }
       }
     }
   });
 }
 
-// Optionally, re-run clustering/chart on "Refresh Chart" button
-document.getElementById('refreshChartBtn')?.addEventListener('click', () => {
-  runKMeans(data);
-});
+// No TensorFlow.js code remains in this file!
