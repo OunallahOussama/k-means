@@ -1,0 +1,49 @@
+{
+  "programs": [
+    {
+      "name": "BI",
+      "core_objective": "Data analysis, BI, decision support",
+      "key_strength": "Analytics, data mining, forecasting",
+      "specialized_courses": ["Data mining", "BI", "Forecasting"],
+      "career_outcomes": ["Data Analyst", "BI Developer", "Data Scientist", "Decision Support Specialist"],
+      "semesters": [
+        ["Algorithms", "OS", "Math", "Management", "Business Communication"],
+        ["Data Structures", "Networks", "Accounting", "Ethics"],
+        ["Advanced Programming", "Web Dev", "DB Design", "Digital Business", "AI"],
+        ["Data Analysis", "Software Engineering", "Data Warehousing", "Leadership"],
+        ["Decision Sciences", "Big Data", "Cloud", "Advanced Programming", "Project Mgmt"],
+        ["Capstone Project"]
+      ]
+    },
+    {
+      "name": "EB",
+      "core_objective": "Digital business, e-commerce",
+      "key_strength": "E-commerce, CRM, web analytics",
+      "specialized_courses": ["E-commerce", "CRM", "Web analytics"],
+      "career_outcomes": ["E-Commerce Manager", "Digital Marketing Specialist", "CRM Consultant", "Web Project Manager"],
+      "semesters": [
+        ["Algorithms", "OS", "Math", "Management", "Business Communication"],
+        ["Data Structures", "Networks", "Accounting", "Ethics"],
+        ["Advanced Programming", "Web Dev", "DB Design", "Digital Business", "AI"],
+        ["CRM", "Data Warehousing", "Web Analytics", "International Business"],
+        ["Web/Mobile Dev", "Data Mining", "Big Data", "Project Mgmt", "Web Analytics"],
+        ["Capstone Project"]
+      ]
+    },
+    {
+      "name": "BIS",
+      "core_objective": "Information systems integration, ERP",
+      "key_strength": "ERP, SI integration, governance",
+      "specialized_courses": ["ERP", "SI integration", "Governance"],
+      "career_outcomes": ["Business Analyst", "ERP Consultant", "IT Project Manager", "Systems Integrator"],
+      "semesters": [
+        ["Algorithms", "OS", "Math", "Management", "Business Communication"],
+        ["Data Structures", "Networks", "Accounting", "Ethics"],
+        ["Advanced Programming", "Web Dev", "DB Design", "Digital Business", "AI"],
+        ["Business Process Mgmt", ".NET", "SI Admin", "Governance"],
+        ["ERP", "SI Integration", "JEE", "BI", "Career Mgmt"],
+        ["Capstone Project"]
+      ]
+    }
+  ]
+}
